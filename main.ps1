@@ -1,52 +1,52 @@
-# Check if script execution is allowed, and guide the user if not
-if ((Get-ExecutionPolicy) -eq 'Restricted') {
-    Write-Host "Script execution is disabled on this system."
-    Write-Host "To enable script execution, run PowerShell as Administrator and execute:"
-    Write-Host "Set-ExecutionPolicy -ExecutionPolicy RemoteSigned"
-    Write-Host "For more information, see: https://go.microsoft.com/fwlink/?LinkID=135170"
+# Set the current directory variable
+$currentDir = Get-Location
+
+# Create a virtual environment named 'venv'
+if (Test-Path -Path "venv") {
+    Write-Host "Virtual environment 'venv' already exists."
+} else {
+    Write-Host "Creating virtual environment 'venv'..."
+    python -m venv venv
+}
+
+# Activate the virtual environment
+$activateScript = Join-Path -Path $currentDir -ChildPath "venv\Scripts\Activate.ps1"
+if (Test-Path -Path $activateScript) {
+    Write-Host "Activating virtual environment..."
+    . $activateScript
+} else {
+    Write-Host "Activation script not found. Please ensure the virtual environment was created successfully."
     exit 1
 }
 
-# Create a Python virtual environment if it doesn't exist
-$venvDir = "C:\Users\Administrator\Documents\GitHub\casino-bot\venv"
-if (-not (Test-Path $venvDir)) {
-    Write-Host "Creating Python virtual environment..."
-    python.exe -m venv $venvDir
+# Ensure the script is running as administrator
+if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+    Write-Host "Restarting script as administrator..."
+    Start-Process powershell "-ExecutionPolicy Bypass -File `"$PSCommandPath`"" -Verb RunAs
+    exit
 }
 
-# Activate the Python virtual environment for the casino-bot project
-$venvPath = "C:\Users\Administrator\Documents\GitHub\casino-bot\venv\Scripts\Activate.ps1"
-if (Test-Path $venvPath) {
-    try {
-        & $venvPath
-    } catch {
-        Write-Host "Could not activate the virtual environment. Script execution may be disabled on this system."
-        Write-Host "To enable script execution, run PowerShell as Administrator and execute:"
-        Write-Host "Set-ExecutionPolicy -ExecutionPolicy RemoteSigned"
-        Write-Host "For more information, see: https://go.microsoft.com/fwlink/?LinkID=135170"
-    }
+# Define the path to the venv python executable
+$venvPython = Join-Path -Path $currentDir -ChildPath "venv\Scripts\python.exe"
+
+# Update pip to the latest version BEFORE installing requirements
+Write-Host "Updating pip to the latest version..."
+& $venvPython -m pip install --upgrade pip
+
+# Install required packages
+$requirementsFile = Join-Path -Path $currentDir -ChildPath "requirements.txt"
+if (Test-Path -Path $requirementsFile) {
+    Write-Host "Installing required packages from $requirementsFile..."
+    & $venvPython -m pip install -r $requirementsFile
 } else {
-    Write-Host "Virtual environment activation script not found at $venvPath"
+    Write-Host "Requirements file not found: $requirementsFile"
 }
 
-# Upgrade pip to the latest version
-Write-Host "Upgrading pip to the latest version..."
-pip install --upgrade pip
-
-# Install required Python packages
-$requirementsFile = "C:\Users\Administrator\Documents\GitHub\casino-bot\requirements.txt"
-if (Test-Path $requirementsFile) {
-    Write-Host "Installing required Python packages..."
-    pip install -r $requirementsFile
+# Run the main script
+$mainScript = Join-Path -Path $currentDir -ChildPath "main.py"
+if (Test-Path -Path $mainScript) {
+    Write-Host "Running main script: $mainScript"
+    & $venvPython $mainScript
 } else {
-    Write-Host "Requirements file not found at $requirementsFile"
-}
-
-# Run the casino-bot script
-$scriptPath = "C:\Users\Administrator\Documents\GitHub\casino-bot\main.py"
-if (Test-Path $scriptPath) {
-    Write-Host "Running casino-bot script..."
-    python.exe $scriptPath
-} else {
-    Write-Host "Casino-bot script not found at $scriptPath"
+    Write-Host "Main script not found: $mainScript"
 }
